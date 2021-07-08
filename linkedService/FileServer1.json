@@ -1,0 +1,38 @@
+{
+	"name": "FileServer1",
+	"type": "Microsoft.DataFactory/factories/linkedservices",
+	"properties": {
+		"type": "FileServer",
+		"parameters": {
+			"hostVar": {
+				"type": "String",
+				"defaultValue": ""
+			},
+			"userIdVar": {
+				"type": "String",
+				"defaultValue": ""
+			},
+			"secretNameVar": {
+				"type": "String",
+				"defaultValue": ""
+			}
+		},
+		"annotations": [],
+		"typeProperties": {
+			"host": "@{linkedService().hostVar}",
+			"userId": "@{linkedService().userIdVar}",
+			"password": {
+				"type": "AzureKeyVaultSecret",
+				"store": {
+					"referenceName": "AzureKeyVault1",
+					"type": "LinkedServiceReference"
+				},
+				"secretName": "@{linkedService().secretNameVar}"
+			}
+		},
+		"connectVia": {
+			"referenceName": "integrationRuntime1",
+			"type": "IntegrationRuntimeReference"
+		}
+	}
+}

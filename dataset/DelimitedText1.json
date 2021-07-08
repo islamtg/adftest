@@ -1,0 +1,60 @@
+{
+	"name": "DelimitedText1",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "FileServer1",
+			"type": "LinkedServiceReference",
+			"parameters": {
+				"hostVar": {
+					"value": "@dataset().hostvar",
+					"type": "Expression"
+				},
+				"userIdVar": {
+					"value": "@dataset().useridvar",
+					"type": "Expression"
+				},
+				"secretNameVar": {
+					"value": "@dataset().secretvar",
+					"type": "Expression"
+				}
+			}
+		},
+		"parameters": {
+			"hostvar": {
+				"type": "string"
+			},
+			"useridvar": {
+				"type": "string"
+			},
+			"secretvar": {
+				"type": "string"
+			},
+			"filenameParam": {
+				"type": "String"
+			},
+			"path": {
+				"type": "string"
+			}
+		},
+		"annotations": [],
+		"type": "DelimitedText",
+		"typeProperties": {
+			"location": {
+				"type": "FileServerLocation",
+				"fileName": {
+					"value": "@dataset().filenameParam",
+					"type": "Expression"
+				},
+				"folderPath": {
+					"value": "@dataset().path",
+					"type": "Expression"
+				}
+			},
+			"columnDelimiter": ",",
+			"escapeChar": "\\",
+			"quoteChar": "\""
+		},
+		"schema": []
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

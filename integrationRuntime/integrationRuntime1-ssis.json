@@ -1,0 +1,36 @@
+{
+	"name": "integrationRuntime1-ssis",
+	"properties": {
+		"type": "Managed",
+		"typeProperties": {
+			"computeProperties": {
+				"location": "West US 2",
+				"nodeSize": "Standard_D8_v3",
+				"numberOfNodes": 2,
+				"maxParallelExecutionsPerNode": 8
+			},
+			"ssisProperties": {
+				"catalogInfo": {
+					"catalogServerEndpoint": "va-sql-demo.database.windows.net",
+					"catalogAdminUserName": "vademoadmin",
+					"catalogAdminPassword": {
+						"type": "SecureString",
+						"value": "**********"
+					},
+					"catalogPricingTier": "S1"
+				},
+				"edition": "Enterprise",
+				"licenseType": "BasePrice",
+				"packageStores": [
+					{
+						"name": "ssistest",
+						"packageStoreLinkedService": {
+							"referenceName": "linkedService1_ssisfileshare",
+							"type": "LinkedServiceReference"
+						}
+					}
+				]
+			}
+		}
+	}
+}

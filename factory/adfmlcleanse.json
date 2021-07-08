@@ -1,0 +1,9 @@
+{
+	"name": "adfmlcleanse",
+	"location": "westus2",
+	"identity": {
+		"type": "SystemAssigned",
+		"principalId": "4f0f4de9-c51c-43ef-ae5b-f6c7dc3a8490",
+		"tenantId": "72f988bf-86f1-41af-91ab-2d7cd011db47"
+	}
+}

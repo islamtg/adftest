@@ -1,0 +1,15 @@
+{
+	"name": "CosmosDataset",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "CosmosLinkedService",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "DocumentDbCollection",
+		"typeProperties": {
+			"collectionName": "FoodCollection"
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

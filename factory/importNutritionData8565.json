@@ -1,0 +1,9 @@
+{
+	"name": "importNutritionData8565",
+	"location": "West US",
+	"identity": {
+		"type": "SystemAssigned",
+		"principalId": "1b1a51b2-dd97-44ab-9720-a037b1dddcee",
+		"tenantId": "72f988bf-86f1-41af-91ab-2d7cd011db47"
+	}
+}

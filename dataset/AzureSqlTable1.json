@@ -8,6 +8,18 @@
 				"servername": {
 					"value": "@dataset().servername",
 					"type": "Expression"
+				},
+				"databasename": {
+					"value": "@dataset().databasename",
+					"type": "Expression"
+				},
+				"sqluse": {
+					"value": "@dataset().username",
+					"type": "Expression"
+				},
+				"password": {
+					"value": "@dataset().password",
+					"type": "Expression"
 				}
 			}
 		},

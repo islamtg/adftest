@@ -1,0 +1,13 @@
+{
+	"name": "AzureMLService1",
+	"properties": {
+		"annotations": [],
+		"type": "AzureMLService",
+		"typeProperties": {
+			"subscriptionId": "3c84e5c6-c8ce-4f99-b67c-b39db1a54086",
+			"resourceGroupName": "Covid-19ML",
+			"mlWorkspaceName": "Covid-19MLPOC",
+			"authentication": "MSI"
+		}
+	}
+}

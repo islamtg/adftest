@@ -1,24 +1,6 @@
 {
 	"name": "DelimitedText1",
 	"properties": {
-		"linkedServiceName": {
-			"referenceName": "FileServer1",
-			"type": "LinkedServiceReference",
-			"parameters": {
-				"hostVar": {
-					"value": "@dataset().hostvar",
-					"type": "Expression"
-				},
-				"userIdVar": {
-					"value": "@dataset().useridvar",
-					"type": "Expression"
-				},
-				"secretNameVar": {
-					"value": "@dataset().secretvar",
-					"type": "Expression"
-				}
-			}
-		},
 		"parameters": {
 			"hostvar": {
 				"type": "string"

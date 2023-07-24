@@ -1,0 +1,27 @@
+{
+	"name": "ssis-ir",
+	"properties": {
+		"type": "Managed",
+		"typeProperties": {
+			"computeProperties": {
+				"location": "East US",
+				"nodeSize": "Standard_D8_v3",
+				"numberOfNodes": 2,
+				"maxParallelExecutionsPerNode": 3
+			},
+			"ssisProperties": {
+				"edition": "Enterprise",
+				"licenseType": "LicenseIncluded",
+				"packageStores": [
+					{
+						"name": "ssis-package-store",
+						"packageStoreLinkedService": {
+							"referenceName": "ssis1",
+							"type": "LinkedServiceReference"
+						}
+					}
+				]
+			}
+		}
+	}
+}

@@ -12,6 +12,16 @@
 			"ssisProperties": {
 				"edition": "Enterprise",
 				"licenseType": "LicenseIncluded",
+				"dataProxyProperties": {
+					"connectVia": {
+						"type": "IntegrationRuntimeReference",
+						"referenceName": "integrationRuntime1"
+					},
+					"stagingLinkedService": {
+						"type": "LinkedServiceReference",
+						"referenceName": "AzureBlobStorage1"
+					}
+				},
 				"packageStores": [
 					{
 						"name": "ssis-package-store",

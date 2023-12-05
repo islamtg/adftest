@@ -1,0 +1,23 @@
+{
+	"name": "AzureSynapseAnalytics2",
+	"properties": {
+		"annotations": [],
+		"type": "AzureSqlDW",
+		"typeProperties": {
+			"connectionString": "Integrated Security=False;Encrypt=True;Connection Timeout=30;Data Source=ie-synapse-insider-ondemand.sql.azuresynapse.net,1433;Initial Catalog=FDIC_Test",
+			"servicePrincipalId": "18455380-b103-4f31-bcfc-6755222dd588",
+			"servicePrincipalKey": {
+				"type": "AzureKeyVaultSecret",
+				"store": {
+					"referenceName": "AzureKeyVault1",
+					"type": "LinkedServiceReference",
+					"parameters": {
+						"keyvaulturl": "https://textanalytics1839518261.vault.azure.net/"
+					}
+				},
+				"secretName": "synapse-mi"
+			},
+			"tenant": "72f988bf-86f1-41af-91ab-2d7cd011db47"
+		}
+	}
+}

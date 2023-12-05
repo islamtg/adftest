@@ -23,7 +23,8 @@
 					"sink": {
 						"type": "ParquetSink",
 						"storeSettings": {
-							"type": "AzureBlobStorageWriteSettings"
+							"type": "AzureBlobStorageWriteSettings",
+							"copyBehavior": "MergeFiles"
 						},
 						"formatSettings": {
 							"type": "ParquetWriteSettings"
@@ -72,12 +73,13 @@
 				},
 				"userProperties": [],
 				"typeProperties": {
-					"fieldList": [
-						"exists"
-					],
+					"dataset": {
+						"referenceName": "Parquet2",
+						"type": "DatasetReference"
+					},
+					"fieldList": [],
 					"storeSettings": {
-						"type": "AzureBlobFSReadSettings",
-						"recursive": true,
+						"type": "AzureBlobStorageReadSettings",
 						"enablePartitionDiscovery": false
 					},
 					"formatSettings": {
@@ -122,22 +124,23 @@
 				},
 				"userProperties": [],
 				"typeProperties": {
-					"source": {
-						"type": "SqlDWSource",
-						"queryTimeout": "02:00:00",
-						"partitionOption": "None"
-					},
 					"sink": {
 						"type": "ParquetSink",
 						"storeSettings": {
-							"type": "AzureBlobFSWriteSettings"
+							"type": "AzureBlobStorageWriteSettings"
 						},
 						"formatSettings": {
 							"type": "ParquetWriteSettings"
 						}
 					},
 					"enableStaging": true
-				}
+				},
+				"outputs": [
+					{
+						"referenceName": "Parquet2",
+						"type": "DatasetReference"
+					}
+				]
 			},
 			{
 				"name": "G_Check_File_Exists_Silver",
@@ -159,12 +162,13 @@
 				},
 				"userProperties": [],
 				"typeProperties": {
-					"fieldList": [
-						"exists"
-					],
+					"dataset": {
+						"referenceName": "Parquet2",
+						"type": "DatasetReference"
+					},
+					"fieldList": [],
 					"storeSettings": {
-						"type": "AzureBlobFSReadSettings",
-						"recursive": true,
+						"type": "AzureBlobStorageReadSettings",
 						"enablePartitionDiscovery": false
 					},
 					"formatSettings": {
@@ -191,6 +195,10 @@
 					"secureInput": false
 				},
 				"userProperties": [],
+				"linkedServiceName": {
+					"referenceName": "AzureSynapseAnalytics2",
+					"type": "LinkedServiceReference"
+				},
 				"typeProperties": {
 					"scripts": [
 						{

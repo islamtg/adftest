@@ -1,0 +1,130 @@
+{
+	"name": "FDIC_PL_RIS_TO_DATALAKE",
+	"properties": {
+		"activities": [
+			{
+				"name": "L_Oracle_Table",
+				"type": "Lookup",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "OracleSource",
+						"oracleReaderQuery": "SELECT OWNER, OBJECT_NAME AS TABLE_NAME, 'select * from ' || OWNER || '.' || OBJECT_NAME as SQL\nFROM ALL_OBJECTS\nWHERE OBJECT_TYPE IN ('TABLE','VIEW')\nAND OWNER = 'RIS'\nAND (OBJECT_NAME like 'RISVIEWX_P%' or OBJECT_NAME = 'MERGHIST');",
+						"partitionOption": "None",
+						"queryTimeout": "02:00:00"
+					},
+					"firstRowOnly": false
+				}
+			},
+			{
+				"name": "F_Failed_Connect_To_Oracle_DFW",
+				"type": "Fail",
+				"dependsOn": [
+					{
+						"activity": "L_Oracle_Table",
+						"dependencyConditions": [
+							"Failed"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"message": "Failed to Connect to the Oracle DFW",
+					"errorCode": "500"
+				}
+			},
+			{
+				"name": "ForEach1",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "L_Oracle_Table",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('L_Oracle_Table').output.value",
+						"type": "Expression"
+					},
+					"isSequential": false,
+					"batchCount": 4,
+					"activities": [
+						{
+							"name": "Execute_RIS_Create_Table_Pipeline",
+							"type": "ExecutePipeline",
+							"dependsOn": [],
+							"userProperties": [],
+							"typeProperties": {
+								"pipeline": {
+									"referenceName": "FDIC_PL_RIS_TO_DATALAKE_PROCESS_TBL",
+									"type": "PipelineReference"
+								},
+								"waitOnCompletion": true
+							}
+						}
+					]
+				}
+			}
+		],
+		"concurrency": 4,
+		"variables": {
+			"filename": {
+				"type": "String"
+			},
+			"owner": {
+				"type": "String"
+			},
+			"table_name": {
+				"type": "String"
+			},
+			"SQL": {
+				"type": "String"
+			},
+			"folder_name": {
+				"type": "String"
+			},
+			"table_curr_cols": {
+				"type": "String"
+			},
+			"bulk_curr": {
+				"type": "String"
+			},
+			"table_all": {
+				"type": "String"
+			},
+			"bulk_all": {
+				"type": "String"
+			},
+			"bulk_silver_curr": {
+				"type": "String"
+			},
+			"bulk_silver_all": {
+				"type": "String"
+			},
+			"table_silver_all": {
+				"type": "String"
+			},
+			"table_silver_curr": {
+				"type": "String"
+			},
+			"YYYYMMDD": {
+				"type": "String"
+			}
+		},
+		"annotations": [],
+		"lastPublishTime": "2023-08-24T14:49:49Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

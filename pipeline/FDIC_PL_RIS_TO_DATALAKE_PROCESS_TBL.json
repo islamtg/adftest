@@ -1,5 +1,5 @@
 {
-	"name": "pipeline1355",
+	"name": "FDIC_PL_RIS_TO_DATALAKE_PROCESS_TBL",
 	"properties": {
 		"activities": [
 			{

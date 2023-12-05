@@ -1,0 +1,524 @@
+{
+	"name": "pipeline1355",
+	"properties": {
+		"activities": [
+			{
+				"name": "C_OnebyOneTable_Blob_Storage",
+				"type": "Copy",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "OracleSource",
+						"partitionOption": "None",
+						"queryTimeout": "02:00:00"
+					},
+					"sink": {
+						"type": "ParquetSink",
+						"storeSettings": {
+							"type": "AzureBlobFSWriteSettings"
+						},
+						"formatSettings": {
+							"type": "ParquetWriteSettings"
+						}
+					},
+					"enableStaging": true
+				}
+			},
+			{
+				"name": "G_Check_File_Exists",
+				"type": "GetMetadata",
+				"dependsOn": [
+					{
+						"activity": "C_OnebyOneTable_Blob_Storage",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"fieldList": [
+						"exists"
+					],
+					"storeSettings": {
+						"type": "AzureBlobFSReadSettings",
+						"recursive": true,
+						"enablePartitionDiscovery": false
+					},
+					"formatSettings": {
+						"type": "ParquetReadSettings"
+					}
+				}
+			},
+			{
+				"name": "F_Failed_Copy_To_Storage",
+				"type": "Fail",
+				"dependsOn": [
+					{
+						"activity": "C_OnebyOneTable_Blob_Storage",
+						"dependencyConditions": [
+							"Failed"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"message": "Failed to Copy File to Storage Account",
+					"errorCode": "500"
+				}
+			},
+			{
+				"name": "C_OnebyOneTable_silver_data_lake",
+				"type": "Copy",
+				"dependsOn": [
+					{
+						"activity": "S_Create_Bronze_View",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "SqlDWSource",
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"sink": {
+						"type": "ParquetSink",
+						"storeSettings": {
+							"type": "AzureBlobFSWriteSettings"
+						},
+						"formatSettings": {
+							"type": "ParquetWriteSettings"
+						}
+					},
+					"enableStaging": true
+				}
+			},
+			{
+				"name": "G_Check_File_Exists_Silver",
+				"type": "GetMetadata",
+				"dependsOn": [
+					{
+						"activity": "C_OnebyOneTable_silver_data_lake",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"fieldList": [
+						"exists"
+					],
+					"storeSettings": {
+						"type": "AzureBlobFSReadSettings",
+						"recursive": true,
+						"enablePartitionDiscovery": false
+					},
+					"formatSettings": {
+						"type": "ParquetReadSettings"
+					}
+				}
+			},
+			{
+				"name": "S_Create_Bronze_View",
+				"type": "Script",
+				"dependsOn": [
+					{
+						"activity": "Set variable4",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"scripts": [
+						{
+							"type": "Query",
+							"text": {
+								"value": "IF EXISTS (\n    SELECT * FROM INFORMATION_SCHEMA.columns where table_name =\n     '@{variables('table_curr_cols')}'\n)\ndrop VIEW dop.@{variables('table_curr_cols')};",
+								"type": "Expression"
+							}
+						},
+						{
+							"type": "Query",
+							"text": {
+								"value": "@concat('CREATE VIEW dop.',pipeline().parameters.table_name,'_curr_cols', \n' AS \nSELECT   \t \n    * \nFROM\n    OPENROWSET(\n        BULK ',variables('bulk_curr'),\n        ',FORMAT=','''PARQUET''',\n        ') as rows;'\n    )",
+								"type": "Expression"
+							}
+						},
+						{
+							"type": "Query",
+							"text": {
+								"value": "IF OBJECT_ID('tempdb..#pre_column_names') is not null\n    Drop Table #pre_column_names;\n\nIF OBJECT_ID('tempdb..#column_names') is not null\n    Drop Table #column_names;\n\nCreate table #pre_column_names (id int NOT NULL, object_name varchar(255) NOT NULL, column_name varchar(255) NOT NULL, data_type varchar(255) NOT NULL);\n\nCreate table #column_names (id int NOT NULL, orig_column_name varchar(255) NOT NULL, column_name varchar(255) NOT NULL);\n\nDeclare @counter INT;\nIF EXISTS (\n    SELECT * \n    FROM INFORMATION_SCHEMA.columns where table_name = '@{variables('table_all')}'\n)\nBEGIN\nInsert into #pre_column_names\nSELECT\n   0 id,\n   OBJECT_NAME(c.object_id) object_name,\n   c.name 'column_name',\n   t.name +\n   CASE WHEN t.name IN ('char', 'varchar','nchar','nvarchar') THEN '('+\n\n             CASE WHEN c.max_length=-1 THEN 'MAX'\n\n                  ELSE CONVERT(VARCHAR(4),\n\n                               CASE WHEN t.name IN ('nchar','nvarchar')\n\n                               THEN  c.max_length/2 ELSE c.max_length END )\n\n                  END +')'\n\n          WHEN t.name IN ('decimal','numeric')\n\n                  THEN '('+ CONVERT(VARCHAR(4),c.precision)+','\n\n                          + CONVERT(VARCHAR(4),c.Scale)+')'\n\n                  ELSE '' END\n\n   as \"data_type\"\nFROM    \n   sys.columns c\nINNER JOIN \n   sys.types t ON c.user_type_id = t.user_type_id\nLEFT OUTER JOIN \n   sys.index_columns ic ON ic.object_id = c.object_id AND ic.column_id = c.column_id\nLEFT OUTER JOIN \n   sys.indexes i ON ic.object_id = i.object_id AND ic.index_id = i.index_id\nWHERE\n   c.object_id = OBJECT_ID('dop.@{variables('table_all')}')\n\nInsert into #pre_column_names\nSELECT\n   0 id,\n   OBJECT_NAME(c.object_id) object_name,\n   c.name 'column_name',\n   t.name +\n   CASE WHEN t.name IN ('char', 'varchar','nchar','nvarchar') THEN '('+\n\n             CASE WHEN c.max_length=-1 THEN 'MAX'\n\n                  ELSE CONVERT(VARCHAR(4),\n\n                               CASE WHEN t.name IN ('nchar','nvarchar')\n\n                               THEN  c.max_length/2 ELSE c.max_length END )\n\n                  END +')'\n\n          WHEN t.name IN ('decimal','numeric')\n\n                  THEN '('+ CONVERT(VARCHAR(4),c.precision)+','\n\n                          + CONVERT(VARCHAR(4),c.Scale)+')'\n\n                  ELSE '' END\n\n   as \"data_type\"\nFROM    \n   sys.columns c\nINNER JOIN \n   sys.types t ON c.user_type_id = t.user_type_id\nLEFT OUTER JOIN \n   sys.index_columns ic ON ic.object_id = c.object_id AND ic.column_id = c.column_id\nLEFT OUTER JOIN \n   sys.indexes i ON ic.object_id = i.object_id AND ic.index_id = i.index_id\nWHERE\n   c.object_id = OBJECT_ID('dop.@{variables('table_curr_cols')}')\nAND not exists (Select 'x' from #pre_column_names b where c.name = b.column_name)\n\nSET @counter = 0\nUpdate #pre_column_names SET @counter = id = @counter + 1\n\nInsert into #column_names\nselect id, column_name, concat('[',column_name,'] ',data_type)\nfrom #pre_column_names where object_name = '@{variables('table_all')}'\nand column_name NOT IN ('YYYY', 'MM', 'DD', 'YYYYMMDD')\nand id = 1\nUNION\nselect id, column_name, concat(',[',column_name,'] ',data_type)\nfrom #pre_column_names where object_name = '@{variables('table_all')}'\nand column_name NOT IN ('YYYY', 'MM', 'DD', 'YYYYMMDD')\nand id > 1\norder by id\n\nInsert into #column_names\nselect id, column_name, concat(',[',column_name,'] ',data_type)\nfrom #pre_column_names a where object_name = '@{variables('table_curr_cols')}'\nand column_name NOT IN ('YYYY', 'MM', 'DD', 'YYYYMMDD')\nand id > 1\nand not exists (Select 'x' from #column_names b where a.column_name = b.orig_column_name)\nEND\nELSE\nBEGIN\nInsert into #pre_column_names\nSELECT\n   0 id,\n   OBJECT_NAME(c.object_id) object_name,\n   c.name 'column_name',\n   t.name +\n   CASE WHEN t.name IN ('char', 'varchar','nchar','nvarchar') THEN '('+\n\n             CASE WHEN c.max_length=-1 THEN 'MAX'\n\n                  ELSE CONVERT(VARCHAR(4),\n\n                               CASE WHEN t.name IN ('nchar','nvarchar')\n\n                               THEN  c.max_length/2 ELSE c.max_length END )\n\n                  END +')'\n\n          WHEN t.name IN ('decimal','numeric')\n\n                  THEN '('+ CONVERT(VARCHAR(4),c.precision)+','\n\n                          + CONVERT(VARCHAR(4),c.Scale)+')'\n\n                  ELSE '' END\n\n   as \"data_type\"\nFROM    \n   sys.columns c\nINNER JOIN \n   sys.types t ON c.user_type_id = t.user_type_id\nLEFT OUTER JOIN \n   sys.index_columns ic ON ic.object_id = c.object_id AND ic.column_id = c.column_id\nLEFT OUTER JOIN \n   sys.indexes i ON ic.object_id = i.object_id AND ic.index_id = i.index_id\nWHERE\n   c.object_id = OBJECT_ID('dop.@{variables('table_curr_cols')}')\n\nSET @counter = 0\nUpdate #pre_column_names SET @counter = id = @counter + 1\n\nInsert into #column_names\nselect id, column_name, concat('[',column_name,'] ',data_type)\nfrom #pre_column_names where object_name = '@{variables('table_curr_cols')}'\nand id = 1\nunion\nselect id, column_name, concat(',[',column_name,'] ',data_type)\nfrom #pre_column_names where object_name = '@{variables('table_curr_cols')}'\nand id > 1\norder by id\nEND;\n\nSelect * from #column_names;\n\nDeclare @column_list varchar(MAX);\nSelect @column_list = (select column_name + ' ' from #column_names FOR XML PATH(''));\n\nDeclare @bulk_value varchar(255) = @{variables('bulk_all')};\n\nDeclare @createviewsql varchar(MAX);\nSET @createviewsql = 'CREATE VIEW dop.@{variables('table_all')}\nAS \nSELECT   \t \n    *\n    ,rows.filepath(1) AS [YYYY]\n    ,rows.filepath(2) AS [MM]\n    ,rows.filepath(3) AS [DD]\n\t,concat(rows.filepath(1), rows.filepath(2), rows.filepath(3)) AS [YYYYMMDD]\nFROM\n    OPENROWSET(\n        BULK ' + '''' + @{variables('bulk_all')} + '''' +\n        ',FORMAT=' + '''' + 'PARQUET' + '''' +\n        ') with (' + @column_list + ') as rows';\n\nIF EXISTS (\n    SELECT * \n    FROM INFORMATION_SCHEMA.columns where table_name = '@{variables('table_all')}'\n)\nBEGIN\ndrop VIEW dop.@{variables('table_all')}\nEND;\n\nIF EXISTS (\n    SELECT * \n    FROM INFORMATION_SCHEMA.columns where table_name = '@{variables('table_curr_cols')}'\n)\nBEGIN\ndrop VIEW dop.@{variables('table_curr_cols')}\nEND;\n\nexec (@createviewsql);",
+								"type": "Expression"
+							}
+						}
+					],
+					"scriptBlockExecutionTimeout": "02:00:00"
+				}
+			},
+			{
+				"name": "Set variable1",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "G_Check_File_Exists",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "table_curr_cols",
+					"value": {
+						"value": "@concat(pipeline().parameters.table_name,'_curr_cols')",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Set variable2",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Set variable1",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "bulk_curr",
+					"value": {
+						"value": "@concat('''https://cdmadatalake01eastd.dfs.core.windows.net/bronze/',toLower(pipeline().parameters.owner),'/',toLower(pipeline().parameters.table_name),'/',formatDateTime(utcnow(),'yyyy'),'/',formatDateTime(utcnow(),'MM'),'/',formatDateTime(utcnow(),'dd'),'/',\n            toLower(pipeline().parameters.table_name),'_',\n            toLower(pipeline().parameters.owner),'_',\n            formatDateTime(utcnow(),'yyyy'),\n            formatDateTime(utcnow(),'MM'),\n            formatDateTime(utcnow(),'dd'),'.parquet''')",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Set variable3",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Set variable2",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "table_all",
+					"value": {
+						"value": "@concat('v_',toLower(pipeline().parameters.owner),'_',toLower(pipeline().parameters.table_name),'_all')",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Set variable4",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Set variable3",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "bulk_all",
+					"value": {
+						"value": "@concat('''https://cdmadatalake01eastd.dfs.core.windows.net/bronze/',toLower(pipeline().parameters.owner),'/',toLower(pipeline().parameters.table_name),'/','*','/','*','/','*','/','*.parquet''')",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Set variable5",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "G_Check_File_Exists_Silver",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "bulk_silver_curr",
+					"value": {
+						"value": "@concat('''https://cdmadatalake01eastd.dfs.core.windows.net/silver/',toLower(pipeline().parameters.owner),'/',toLower(pipeline().parameters.table_name),'/',formatDateTime(utcnow(),'yyyy'),'/',formatDateTime(utcnow(),'MM'),'/',formatDateTime(utcnow(),'dd'),'/',\n            toLower(pipeline().parameters.table_name),'_',\n            toLower(pipeline().parameters.owner),'_',\n            formatDateTime(utcnow(),'yyyy'),\n            formatDateTime(utcnow(),'MM'),\n            formatDateTime(utcnow(),'dd'),'.parquet''')",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Set variable6",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Set variable5",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "bulk_silver_all",
+					"value": {
+						"value": "@concat('''https://cdmadatalake01eastd.dfs.core.windows.net/silver/',toLower(pipeline().parameters.owner),'/',toLower(pipeline().parameters.table_name),'/','*','/','*','/','*','/','*.parquet''')",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Set variable7",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Set variable6",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "table_silver_all",
+					"value": {
+						"value": "@concat('v_',toLower(pipeline().parameters.owner),'_',toLower(pipeline().parameters.table_name),'_silver_all')",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "S_Create_Silver_Views",
+				"type": "Script",
+				"dependsOn": [
+					{
+						"activity": "Set variable9",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"scripts": [
+						{
+							"type": "NonQuery",
+							"text": {
+								"value": "IF EXISTS (\n    SELECT * FROM INFORMATION_SCHEMA.columns where table_name =\n     '@{variables('table_curr_cols')}'\n)\ndrop VIEW dop.@{variables('table_curr_cols')};",
+								"type": "Expression"
+							}
+						},
+						{
+							"type": "NonQuery",
+							"text": {
+								"value": "@concat('CREATE VIEW dop.',pipeline().parameters.table_name,'_curr_cols', \n' AS \nSELECT   \t \n    * \nFROM\n    OPENROWSET(\n        BULK ',variables('bulk_silver_curr'),\n        ',FORMAT=','''PARQUET''',\n        ') as rows;'\n    )",
+								"type": "Expression"
+							}
+						},
+						{
+							"type": "NonQuery",
+							"text": {
+								"value": "IF OBJECT_ID('tempdb..#pre_column_names') is not null\n    Drop Table #pre_column_names;\n\nIF OBJECT_ID('tempdb..#column_names') is not null\n    Drop Table #column_names;\n\nCreate table #pre_column_names (id int NOT NULL, object_name varchar(255) NOT NULL, column_name varchar(255) NOT NULL, data_type varchar(255) NOT NULL);\n\nCreate table #column_names (id int NOT NULL, orig_column_name varchar(255) NOT NULL, column_name varchar(255) NOT NULL);\n\nDeclare @counter INT;\nIF EXISTS (\n    SELECT * \n    FROM INFORMATION_SCHEMA.columns where table_name = '@{variables('table_silver_all')}'\n)\nBEGIN\nInsert into #pre_column_names\nSELECT\n   0 id,\n   OBJECT_NAME(c.object_id) object_name,\n   c.name 'column_name',\n   t.name +\n   CASE WHEN t.name IN ('char', 'varchar','nchar','nvarchar') THEN '('+\n\n             CASE WHEN c.max_length=-1 THEN 'MAX'\n\n                  ELSE CONVERT(VARCHAR(4),\n\n                               CASE WHEN t.name IN ('nchar','nvarchar')\n\n                               THEN  c.max_length/2 ELSE c.max_length END )\n\n                  END +')'\n\n          WHEN t.name IN ('decimal','numeric')\n\n                  THEN '('+ CONVERT(VARCHAR(4),c.precision)+','\n\n                          + CONVERT(VARCHAR(4),c.Scale)+')'\n\n                  ELSE '' END\n\n   as \"data_type\"\nFROM    \n   sys.columns c\nINNER JOIN \n   sys.types t ON c.user_type_id = t.user_type_id\nLEFT OUTER JOIN \n   sys.index_columns ic ON ic.object_id = c.object_id AND ic.column_id = c.column_id\nLEFT OUTER JOIN \n   sys.indexes i ON ic.object_id = i.object_id AND ic.index_id = i.index_id\nWHERE\n   c.object_id = OBJECT_ID('dop.@{variables('table_silver_all')}')\n\nInsert into #pre_column_names\nSELECT\n   0 id,\n   OBJECT_NAME(c.object_id) object_name,\n   c.name 'column_name',\n   t.name +\n   CASE WHEN t.name IN ('char', 'varchar','nchar','nvarchar') THEN '('+\n\n             CASE WHEN c.max_length=-1 THEN 'MAX'\n\n                  ELSE CONVERT(VARCHAR(4),\n\n                               CASE WHEN t.name IN ('nchar','nvarchar')\n\n                               THEN  c.max_length/2 ELSE c.max_length END )\n\n                  END +')'\n\n          WHEN t.name IN ('decimal','numeric')\n\n                  THEN '('+ CONVERT(VARCHAR(4),c.precision)+','\n\n                          + CONVERT(VARCHAR(4),c.Scale)+')'\n\n                  ELSE '' END\n\n   as \"data_type\"\nFROM    \n   sys.columns c\nINNER JOIN \n   sys.types t ON c.user_type_id = t.user_type_id\nLEFT OUTER JOIN \n   sys.index_columns ic ON ic.object_id = c.object_id AND ic.column_id = c.column_id\nLEFT OUTER JOIN \n   sys.indexes i ON ic.object_id = i.object_id AND ic.index_id = i.index_id\nWHERE\n   c.object_id = OBJECT_ID('dop.@{variables('table_curr_cols')}')\nAND not exists (Select 'x' from #pre_column_names b where c.name = b.column_name)\n\nSET @counter = 0\nUpdate #pre_column_names SET @counter = id = @counter + 1\n\nInsert into #column_names\nselect id, column_name, concat('[',column_name,'] ',data_type)\nfrom #pre_column_names where object_name = '@{variables('table_silver_all')}'\n--and column_name NOT IN ('YYYY', 'MM', 'DD', 'YYYYMMDD')\nand id = 1\nUNION\nselect id, column_name, concat(',[',column_name,'] ',data_type)\nfrom #pre_column_names where object_name = '@{variables('table_silver_all')}'\n--and column_name NOT IN ('YYYY', 'MM', 'DD', 'YYYYMMDD')\nand id > 1\norder by id\n\nInsert into #column_names\nselect id, column_name, concat(',[',column_name,'] ',data_type)\nfrom #pre_column_names a where object_name = '@{variables('table_curr_cols')}'\n--and column_name NOT IN ('YYYY', 'MM', 'DD', 'YYYYMMDD')\nand id > 1\nand not exists (Select 'x' from #column_names b where a.column_name = b.orig_column_name)\nEND\nELSE\nBEGIN\nInsert into #pre_column_names\nSELECT\n   0 id,\n   OBJECT_NAME(c.object_id) object_name,\n   c.name 'column_name',\n   t.name +\n   CASE WHEN t.name IN ('char', 'varchar','nchar','nvarchar') THEN '('+\n\n             CASE WHEN c.max_length=-1 THEN 'MAX'\n\n                  ELSE CONVERT(VARCHAR(4),\n\n                               CASE WHEN t.name IN ('nchar','nvarchar')\n\n                               THEN  c.max_length/2 ELSE c.max_length END )\n\n                  END +')'\n\n          WHEN t.name IN ('decimal','numeric')\n\n                  THEN '('+ CONVERT(VARCHAR(4),c.precision)+','\n\n                          + CONVERT(VARCHAR(4),c.Scale)+')'\n\n                  ELSE '' END\n\n   as \"data_type\"\nFROM    \n   sys.columns c\nINNER JOIN \n   sys.types t ON c.user_type_id = t.user_type_id\nLEFT OUTER JOIN \n   sys.index_columns ic ON ic.object_id = c.object_id AND ic.column_id = c.column_id\nLEFT OUTER JOIN \n   sys.indexes i ON ic.object_id = i.object_id AND ic.index_id = i.index_id\nWHERE\n   c.object_id = OBJECT_ID('dop.@{variables('table_curr_cols')}')\n\nSET @counter = 0\nUpdate #pre_column_names SET @counter = id = @counter + 1\n\nInsert into #column_names\nselect id, column_name, concat('[',column_name,'] ',data_type)\nfrom #pre_column_names where object_name = '@{variables('table_curr_cols')}'\nand id = 1\nunion\nselect id, column_name, concat(',[',column_name,'] ',data_type)\nfrom #pre_column_names where object_name = '@{variables('table_curr_cols')}'\nand id > 1\norder by id\nEND;\n\nSelect * from #column_names;\n\nDeclare @column_list varchar(MAX);\nSelect @column_list = (select column_name + ' ' from #column_names FOR XML PATH(''));\n\nDeclare @createsilverallviewsql varchar(MAX);\nSET @createsilverallviewsql = 'CREATE VIEW dop.@{variables('table_silver_all')}\nAS \nSELECT   \t \n    *\nFROM\n    OPENROWSET(\n        BULK ' + '''' + @{variables('bulk_silver_all')} + '''' +\n        ',FORMAT=' + '''' + 'PARQUET' + '''' +\n        ') with (' + @column_list + ') as rows';\n\nDeclare @createsilvercurrviewsql varchar(MAX);\nSET @createsilvercurrviewsql = 'CREATE VIEW dop.@{variables('table_silver_curr')}\nAS \nSELECT   \t \n    *\nFROM\n    OPENROWSET(\n        BULK ' + '''' + @{variables('bulk_silver_curr')} + '''' +\n        ',FORMAT=' + '''' + 'PARQUET' + '''' +\n        ') as rows Where YYYYMMDD = ' + @{variables('YYYYMMDD')};\n\nIF EXISTS (\n    SELECT * \n    FROM INFORMATION_SCHEMA.columns where table_name = '@{variables('table_curr_cols')}'\n)\ndrop VIEW dop.@{variables('table_curr_cols')};\n\nIF EXISTS (\n    SELECT * \n    FROM INFORMATION_SCHEMA.columns where table_name = '@{variables('table_silver_all')}'\n)\ndrop VIEW dop.@{variables('table_silver_all')};\n\nexec (@createsilverallviewsql);\n\nIF EXISTS (\n    SELECT * \n    FROM INFORMATION_SCHEMA.columns where table_name = '@{variables('table_silver_curr')}'\n)\ndrop VIEW dop.@{variables('table_silver_curr')};\n\nexec (@createsilvercurrviewsql);",
+								"type": "Expression"
+							}
+						}
+					],
+					"scriptBlockExecutionTimeout": "02:00:00"
+				}
+			},
+			{
+				"name": "Set variable8",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Set variable7",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "table_silver_curr",
+					"value": {
+						"value": "@concat('v_',toLower(pipeline().parameters.owner),'_',toLower(pipeline().parameters.table_name),'_silver_curr')",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Set variable9",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Set variable8",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "YYYYMMDD",
+					"value": {
+						"value": "@concat('''', formatDateTime(utcnow(),'yyyy'),\n         formatDateTime(utcnow(),'MM'),\n         formatDateTime(utcnow(),'dd'),'''')",
+						"type": "Expression"
+					}
+				}
+			}
+		],
+		"concurrency": 1,
+		"parameters": {
+			"owner": {
+				"type": "string"
+			},
+			"table_name": {
+				"type": "string"
+			},
+			"SQL": {
+				"type": "string"
+			}
+		},
+		"variables": {
+			"filename": {
+				"type": "String"
+			},
+			"owner": {
+				"type": "String"
+			},
+			"table_name": {
+				"type": "String"
+			},
+			"SQL": {
+				"type": "String"
+			},
+			"folder_name": {
+				"type": "String"
+			},
+			"table_curr_cols": {
+				"type": "String"
+			},
+			"bulk_curr": {
+				"type": "String"
+			},
+			"table_all": {
+				"type": "String"
+			},
+			"bulk_all": {
+				"type": "String"
+			},
+			"bulk_silver_curr": {
+				"type": "String"
+			},
+			"bulk_silver_all": {
+				"type": "String"
+			},
+			"table_silver_all": {
+				"type": "String"
+			},
+			"table_silver_curr": {
+				"type": "String"
+			},
+			"YYYYMMDD": {
+				"type": "String"
+			}
+		},
+		"annotations": [],
+		"lastPublishTime": "2023-08-24T14:49:49Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

@@ -25,19 +25,7 @@
 						"writeBehavior": "insert"
 					},
 					"enableStaging": false
-				},
-				"inputs": [
-					{
-						"referenceName": "BlobDataset",
-						"type": "DatasetReference"
-					}
-				],
-				"outputs": [
-					{
-						"referenceName": "CosmosDataset",
-						"type": "DatasetReference"
-					}
-				]
+				}
 			}
 		],
 		"annotations": [],

@@ -71,10 +71,6 @@
 							"dependsOn": [],
 							"userProperties": [],
 							"typeProperties": {
-								"pipeline": {
-									"referenceName": "FDIC_PL_RIS_TO_DATALAKE_PROCESS_TBL",
-									"type": "PipelineReference"
-								},
 								"waitOnCompletion": true
 							}
 						}

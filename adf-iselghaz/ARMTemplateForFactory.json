@@ -111,7 +111,13 @@
 						},
 						"userProperties": [],
 						"typeProperties": {
-							"storedProcedureName": "[[dbo].[AzureSQLMaintenance]"
+							"storedProcedureName": "[[dbo].[AzureSQLMaintenance]",
+							"storedProcedureParameters": {
+								"operation": {
+									"value": "ALL",
+									"type": "String"
+								}
+							}
 						},
 						"linkedServiceName": {
 							"referenceName": "jobslinked",

@@ -15,7 +15,7 @@
 				},
 				"userProperties": [],
 				"typeProperties": {
-					"storedProcedureName": "[dbo].[up_updstats]"
+					"storedProcedureName": "[dbo].[AzureSQLMaintenance]"
 				},
 				"linkedServiceName": {
 					"referenceName": "jobslinked",

@@ -35,15 +35,7 @@
 							"fileExtension": ".txt"
 						}
 					},
-					"enableStaging": false,
-					"translator": {
-						"type": "TabularTranslator",
-						"typeConversion": true,
-						"typeConversionSettings": {
-							"allowDataTruncation": true,
-							"treatBooleanAsNumber": false
-						}
-					}
+					"enableStaging": false
 				},
 				"inputs": [
 					{
@@ -64,34 +56,6 @@
 							},
 							"password": {
 								"value": "@pipeline().parameters.password",
-								"type": "Expression"
-							}
-						}
-					}
-				],
-				"outputs": [
-					{
-						"referenceName": "DelimitedText1",
-						"type": "DatasetReference",
-						"parameters": {
-							"hostvar": {
-								"value": "@pipeline().parameters.path",
-								"type": "Expression"
-							},
-							"useridvar": {
-								"value": "@pipeline().parameters.useridvar",
-								"type": "Expression"
-							},
-							"secretvar": {
-								"value": "@pipeline().parameters.secretVar",
-								"type": "Expression"
-							},
-							"filenameParam": {
-								"value": "@pipeline().parameters.filename",
-								"type": "Expression"
-							},
-							"path": {
-								"value": "@pipeline().parameters.path",
 								"type": "Expression"
 							}
 						}

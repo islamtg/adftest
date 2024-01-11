@@ -1,0 +1,205 @@
+{
+	"$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"factoryName": {
+			"type": "string",
+			"metadata": "Data Factory name",
+			"defaultValue": "adf-iselghaz"
+		}
+	},
+	"variables": {
+		"factoryId": "[concat('Microsoft.DataFactory/factories/', parameters('factoryName'))]"
+	},
+	"resources": [
+		{
+			"name": "[concat(parameters('factoryName'), '/AzureSynapseAnalyticsTable1')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "AzureSynapseAnalytics1",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "AzureSqlDWTable",
+				"schema": [],
+				"typeProperties": {
+					"schema": "dbo",
+					"table": "DimMovies"
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/Parquet1')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "AzureBlobStorage1",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "Parquet",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobStorageLocation",
+						"container": "islam-learning-ds"
+					},
+					"compressionCodec": "snappy"
+				},
+				"schema": []
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/Parquet2')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "AzureBlobStorage2",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "Parquet",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobStorageLocation",
+						"fileName": "test.parquet",
+						"container": "test"
+					},
+					"compressionCodec": "snappy"
+				},
+				"schema": [
+					{
+						"name": "name",
+						"type": "UTF8"
+					},
+					{
+						"name": "availabilityDate",
+						"type": "UTF8"
+					},
+					{
+						"name": "genre",
+						"type": "UTF8"
+					},
+					{
+						"name": "rating",
+						"type": "UTF8"
+					},
+					{
+						"name": "releaseYear",
+						"type": "INT64"
+					},
+					{
+						"name": "runtime",
+						"type": "INT64"
+					},
+					{
+						"name": "streamingAvailabilityDate",
+						"type": "UTF8"
+					},
+					{
+						"name": "tier",
+						"type": "INT64"
+					},
+					{
+						"name": "title",
+						"type": "UTF8"
+					},
+					{
+						"name": "id",
+						"type": "UTF8"
+					},
+					{
+						"name": "_rid",
+						"type": "UTF8"
+					},
+					{
+						"name": "_self",
+						"type": "UTF8"
+					},
+					{
+						"name": "_etag",
+						"type": "UTF8"
+					},
+					{
+						"name": "_attachments",
+						"type": "UTF8"
+					},
+					{
+						"name": "_ts",
+						"type": "INT64"
+					}
+				]
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/ssis-ir')]",
+			"type": "Microsoft.DataFactory/factories/integrationRuntimes",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"type": "Managed",
+				"typeProperties": {
+					"computeProperties": {
+						"location": "East US",
+						"nodeSize": "Standard_D8_v3",
+						"numberOfNodes": 2,
+						"maxParallelExecutionsPerNode": 3
+					},
+					"ssisProperties": {
+						"edition": "Enterprise",
+						"licenseType": "LicenseIncluded",
+						"dataProxyProperties": {
+							"connectVia": {
+								"type": "IntegrationRuntimeReference",
+								"referenceName": "integrationRuntime1"
+							},
+							"stagingLinkedService": {
+								"type": "LinkedServiceReference",
+								"referenceName": "AzureBlobStorage1"
+							}
+						},
+						"packageStores": [
+							{
+								"name": "ssis-package-store",
+								"packageStoreLinkedService": {
+									"referenceName": "ssis1",
+									"type": "LinkedServiceReference"
+								}
+							}
+						]
+					}
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/WranglingDataFlow1')]",
+			"type": "Microsoft.DataFactory/factories/dataflows",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"type": "WranglingDataFlow",
+				"typeProperties": {
+					"sources": [
+						{
+							"name": "Parquet2",
+							"script": "source(allowSchemaDrift: true,\n\tvalidateSchema: false,\n\tignoreNoFilesFound: false,\n\tformat: 'parquet') ~> Parquet2",
+							"dataset": {
+								"referenceName": "Parquet2",
+								"type": "DatasetReference"
+							}
+						}
+					],
+					"script": "section Section1;\r\nshared Parquet2 = let\r\n  AdfDoc = AzureStorage.BlobContents(\"https://islamlearningdiag.blob.core.windows.net/islam-learning-ds/[Southrige].[Movies].parquet\"),\r\n  Parquet = Parquet.Document(AdfDoc)\r\nin\r\n  Parquet;\r\nshared UserQuery = let\r\n  Source = Parquet2,\r\n  #\"Filtered rows\" = Table.SelectRows(Source, each [id] <> null and [id] <> \"\")\r\nin\r\n  #\"Filtered rows\";\r\n"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/datasets/Parquet2')]"
+			]
+		}
+	]
+}
